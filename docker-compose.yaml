@@ -1,0 +1,9 @@
+version: "3.8"
+services:
+  keto:
+    build: .
+    container_name: keto
+    volumes:
+      - ./source:/data/source:rw
+      - ./target:/data/target:rw
+    restart: unless-stopped
