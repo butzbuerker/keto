@@ -1,6 +1,6 @@
 # Keto - Ordnerüberwachungsdienst
 
-Dies ist ein Beispielprojekt, das einen Docker-basierten Ordnerüberwachungsdienst implementiert. Der Dienst überwacht einen Quellordner auf neue PDF-Dateien und verschiebt sie in einen Zielordner. Dies eignet sich beispielsweise, um Dateien, die über ein NAS oder einen FTP-Server eintreffen, automatisch in einen Canon Hotfolder zu verschieben.
+Dies ist ein internes Projekt, das einen Docker-basierten Ordnerüberwachungsdienst implementiert. Der Dienst überwacht einen Quellordner auf neue PDF-Dateien und verschiebt sie in einen Zielordner. Dies eignet sich beispielsweise, um Dateien, die über ein NAS oder einen FTP-Server eintreffen, automatisch in einen Druck Hotfolder zu verschieben.
 
 ## Architektur
 
