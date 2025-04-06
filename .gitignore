@@ -1,0 +1,5 @@
+# Sensible Umgebungsvariablen nicht tracken
+.env
+
+# Ignoriere alle Log-Dateien
+*.log
