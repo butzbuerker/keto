@@ -3,3 +3,6 @@
 
 # Ignoriere alle Log-Dateien
 *.log
+
+# Sensible Umgebungsvariablen nicht tracken
+.vars
