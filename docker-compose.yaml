@@ -4,6 +4,10 @@ services:
     build: .
     container_name: keto
     volumes:
-      - ./source:/data/source:rw
-      - ./target:/data/target:rw
+      - "${SOURCE_PATH}:/data/source:rw"
+      - "${TARGET_PATH}:/data/target:rw"
     restart: unless-stopped
+    environment:
+      - WEBHOOK_URL=${WEBHOOK_URL}
+    env_file:
+      - .env
