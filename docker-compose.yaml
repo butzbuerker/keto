@@ -4,8 +4,8 @@ services:
     build: .
     container_name: keto
     volumes:
-      - "${SOURCE_PATH}:/data/source:rw"
-      - "${TARGET_PATH}:/data/target:rw"
+      - "/mnt/nas_folder:/data/source:rw"
+      - "/mnt/canon_hotfolder:/data/target:rw"
     restart: unless-stopped
     environment:
       - WEBHOOK_URL=${WEBHOOK_URL}
