@@ -28,11 +28,11 @@ send_webhook() {
     fi
 }
 
-# Funktion, die eine Datei verarbeitet (Verschieben mit Retry-Loop)
+# Funktion zur Verarbeitung einer Datei
 process_file() {
     local FILENAME="$1"
     echo "$(date): Verarbeite Datei ${FILENAME}"
-    sleep 2  # kurze Verzögerung, falls die Datei noch nicht vollständig geschrieben wurde
+    sleep 2  # Warte kurz, damit die Datei vollständig geschrieben wurde
 
     # Prüfe, ob das TARGET_DIR erreichbar ist.
     local retries_target=5
@@ -86,7 +86,7 @@ process_file() {
     return 0
 }
 
-# Zuerst: Überprüfe, ob SOURCE_DIR gemountet ist (Retry-Loop)
+# Prüfe, ob das SOURCE_DIR gemountet ist. Falls nicht, versuche es mehrfach.
 MAX_RETRIES_SOURCE=10
 COUNT_SOURCE=0
 until mountpoint -q "${SOURCE_DIR}"; do
@@ -104,7 +104,6 @@ echo "$(date): Quelle ${SOURCE_DIR} ist gemountet. Starte Initialisierung..."
 
 # Initialisierungsphase: Verarbeite alle bereits vorhandenen PDF-Dateien im SOURCE_DIR
 for file in "${SOURCE_DIR}"/*.pdf; do
-    # Überprüfe, ob tatsächlich eine PDF gefunden wurde. Falls kein Match, wird "${SOURCE_DIR}/*.pdf" selbst zurückgegeben.
     if [ -e "$file" ]; then
         FILENAME=$(basename "$file")
         process_file "$FILENAME"
