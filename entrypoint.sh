@@ -113,7 +113,7 @@ done
 echo "$(date): Initialisierung abgeschlossen – starte Überwachung auf neue PDF-Dateien..."
 
 # Starte die kontinuierliche Überwachung des Quellordners mit inotifywait
-inotifywait -m -e create --format '%f' "${SOURCE_DIR}" | while read FILENAME; do
+inotifywait -m -e create,moved_to --format '%f' "${SOURCE_DIR}" | while read FILENAME; do
     if [[ "${FILENAME}" == *.pdf ]]; then
         process_file "${FILENAME}"
     fi
