@@ -1,8 +1,7 @@
 #!/bin/bash
 # entrypoint.sh - Initialisiert den Prozess, indem alle vorhandenen PDF-Dateien im Quellordner verarbeitet werden,
-# und startet anschließend die Überwachung für neu erstellte PDF-Dateien.
-# Dabei werden die Dateien in den Zielordner verschoben und über einen n8n Webhook werden Meldungen versendet.
-# Das Skript implementiert sowohl eine Initialisierungsphase als auch einen kontinuierlichen Überwachungsmodus.
+# und startet anschließend einen kontinuierlichen Polling-Modus, der alle 5 Sekunden nach neuen PDF-Dateien sucht.
+# Die Dateien werden in den Zielordner verschoben und über einen n8n Webhook werden Meldungen versendet.
 
 # Verzeichnis, in dem neue Dateien ankommen (z. B. NAS-Ordner, per Volume gemountet)
 SOURCE_DIR="/data/source"
@@ -13,7 +12,7 @@ TARGET_DIR="/data/target"
 # Webhook URL, über Umgebungsvariable konfigurierbar
 WEBHOOK_URL="${WEBHOOK_URL:-}"
 
-echo "Starte Überwachung und Initialisierung..."
+echo "$(date): Starte Überwachung und Initialisierung..."
 
 # Funktion, die einen JSON-POST an den Webhook sendet
 send_webhook() {
@@ -32,7 +31,7 @@ send_webhook() {
 process_file() {
     local FILENAME="$1"
     echo "$(date): Verarbeite Datei ${FILENAME}"
-    sleep 2  # Warte kurz, damit die Datei vollständig geschrieben wurde
+    sleep 2  # Kurze Wartezeit, damit die Datei vollständig geschrieben ist
 
     # Prüfe, ob das TARGET_DIR erreichbar ist.
     local retries_target=5
@@ -79,7 +78,7 @@ process_file() {
                 sleep 3600  # 1 Stunde Pause
                 COUNT_MOVE=0    # Retry-Zähler zurücksetzen
                 BACKOFF=10      # Backoff zurücksetzen
-                errorSent=false # Fehlerflag zurücksetzen, um erneut Fehler zu melden falls nötig
+                errorSent=false # Fehlerflag zurücksetzen, um bei erneutem Fehler wieder einen Webhook zu senden
             fi
         fi
     done
@@ -110,11 +109,15 @@ for file in "${SOURCE_DIR}"/*.pdf; do
     fi
 done
 
-echo "$(date): Initialisierung abgeschlossen – starte Überwachung auf neue PDF-Dateien..."
+echo "$(date): Initialisierung abgeschlossen – starte Polling auf neue PDF-Dateien..."
 
-# Starte die kontinuierliche Überwachung des Quellordners mit inotifywait
-inotifywait -m -e create,moved_to --format '%f' "${SOURCE_DIR}" | while read FILENAME; do
-    if [[ "${FILENAME}" == *.pdf ]]; then
-        process_file "${FILENAME}"
-    fi
+# Kontinuierliche Überwachung des Quellordners per Polling
+while true; do
+    for file in "${SOURCE_DIR}"/*.pdf; do
+        # Falls keine PDF-Datei existiert, wird die Schleife übersprungen
+        [ -e "$file" ] || continue
+        FILENAME=$(basename "$file")
+        process_file "$FILENAME"
+    done
+    sleep 5
 done
