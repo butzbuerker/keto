@@ -27,11 +27,41 @@ send_webhook() {
     fi
 }
 
+# Funktion zur Überprüfung, ob eine Datei vollständig geschrieben wurde
+check_file_complete() {
+    local FILENAME="$1"
+    local last_size=0
+    local current_size
+    local unchanged_count=0
+    local max_checks=10
+    local check_interval=1
+
+    while [ $unchanged_count -lt 3 ] && [ $max_checks -gt 0 ]; do
+        current_size=$(stat -f %z "${SOURCE_DIR}/${FILENAME}" 2>/dev/null || stat -c %s "${SOURCE_DIR}/${FILENAME}")
+        if [ "$current_size" = "$last_size" ]; then
+            unchanged_count=$((unchanged_count + 1))
+        else
+            unchanged_count=0
+        fi
+        last_size=$current_size
+        sleep $check_interval
+        max_checks=$((max_checks - 1))
+    done
+
+    [ $unchanged_count -ge 3 ]
+}
+
 # Funktion zur Verarbeitung einer Datei
 process_file() {
     local FILENAME="$1"
     echo "$(date): Verarbeite Datei ${FILENAME}"
-    sleep 2  # Kurze Wartezeit, damit die Datei vollständig geschrieben ist
+
+    # Warte bis die Datei vollständig geschrieben ist
+    if ! check_file_complete "$FILENAME"; then
+        echo "$(date): Datei ${FILENAME} scheint noch geschrieben zu werden. Überspringe Verarbeitung."
+        send_webhook "error" "file_incomplete_${FILENAME}"
+        return 1
+    fi
 
     # Prüfe, ob das TARGET_DIR erreichbar ist.
     local retries_target=5
