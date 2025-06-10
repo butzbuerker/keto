@@ -37,10 +37,18 @@ check_file_complete() {
     local unchanged_count=0
     local check_interval=1
 
+    echo "$(date): Starte Überprüfung der Datei ${FILENAME} auf Vollständigkeit"
+
+    # Feste Wartezeit von 30 Sekunden
+    echo "$(date): Warte 30 Sekunden, um sicherzustellen, dass die Datei vollständig geschrieben wurde..."
+    sleep 30
+
     while [ $attempt -lt $max_attempts ]; do
+        echo "$(date): Versuch $((attempt + 1))/$max_attempts - Prüfe Datei ${FILENAME}"
+        
         # Versuche die Datei zu öffnen und zu lesen
         if ! dd if="${SOURCE_DIR}/${FILENAME}" of=/dev/null bs=1M count=1 2>/dev/null; then
-            # Wenn die Datei nicht gelesen werden kann, warte kurz und versuche es erneut
+            echo "$(date): Datei ${FILENAME} konnte nicht gelesen werden (Versuch $((attempt + 1)))"
             sleep $check_interval
             attempt=$((attempt + 1))
             continue
@@ -48,16 +56,22 @@ check_file_complete() {
 
         # Prüfe die Dateigröße
         current_size=$(stat -f %z "${SOURCE_DIR}/${FILENAME}" 2>/dev/null || stat -c %s "${SOURCE_DIR}/${FILENAME}")
+        echo "$(date): Aktuelle Dateigröße: ${current_size} Bytes"
         
         if [ "$current_size" = "$last_size" ]; then
             unchanged_count=$((unchanged_count + 1))
+            echo "$(date): Dateigröße unverändert (${unchanged_count}/3)"
             if [ $unchanged_count -ge 3 ]; then
-                # Versuche die Datei ein letztes Mal vollständig zu lesen
+                echo "$(date): Versuche vollständigen Lesevorgang für ${FILENAME}"
                 if dd if="${SOURCE_DIR}/${FILENAME}" of=/dev/null bs=1M 2>/dev/null; then
+                    echo "$(date): Datei ${FILENAME} erfolgreich vollständig gelesen"
                     return 0
+                else
+                    echo "$(date): Fehler beim vollständigen Lesen von ${FILENAME}"
                 fi
             fi
         else
+            echo "$(date): Dateigröße hat sich geändert: ${last_size} -> ${current_size} Bytes"
             unchanged_count=0
         fi
         
@@ -66,6 +80,7 @@ check_file_complete() {
         attempt=$((attempt + 1))
     done
 
+    echo "$(date): Maximale Anzahl an Versuchen erreicht für ${FILENAME}"
     return 1
 }
 
