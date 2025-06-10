@@ -30,25 +30,43 @@ send_webhook() {
 # Funktion zur Überprüfung, ob eine Datei vollständig geschrieben wurde
 check_file_complete() {
     local FILENAME="$1"
+    local max_attempts=30
+    local attempt=0
     local last_size=0
     local current_size
     local unchanged_count=0
-    local max_checks=10
     local check_interval=1
 
-    while [ $unchanged_count -lt 3 ] && [ $max_checks -gt 0 ]; do
+    while [ $attempt -lt $max_attempts ]; do
+        # Versuche die Datei zu öffnen und zu lesen
+        if ! dd if="${SOURCE_DIR}/${FILENAME}" of=/dev/null bs=1M count=1 2>/dev/null; then
+            # Wenn die Datei nicht gelesen werden kann, warte kurz und versuche es erneut
+            sleep $check_interval
+            attempt=$((attempt + 1))
+            continue
+        fi
+
+        # Prüfe die Dateigröße
         current_size=$(stat -f %z "${SOURCE_DIR}/${FILENAME}" 2>/dev/null || stat -c %s "${SOURCE_DIR}/${FILENAME}")
+        
         if [ "$current_size" = "$last_size" ]; then
             unchanged_count=$((unchanged_count + 1))
+            if [ $unchanged_count -ge 3 ]; then
+                # Versuche die Datei ein letztes Mal vollständig zu lesen
+                if dd if="${SOURCE_DIR}/${FILENAME}" of=/dev/null bs=1M 2>/dev/null; then
+                    return 0
+                fi
+            fi
         else
             unchanged_count=0
         fi
+        
         last_size=$current_size
         sleep $check_interval
-        max_checks=$((max_checks - 1))
+        attempt=$((attempt + 1))
     done
 
-    [ $unchanged_count -ge 3 ]
+    return 1
 }
 
 # Funktion zur Verarbeitung einer Datei
