@@ -38,8 +38,6 @@ check_file_complete() {
     local check_interval=1
 
     echo "$(date): Starte Überprüfung der Datei ${FILENAME} auf Vollständigkeit"
-
-    # Feste Wartezeit von 30 Sekunden
     echo "$(date): Warte 30 Sekunden, um sicherzustellen, dass die Datei vollständig geschrieben wurde..."
     sleep 30
 
