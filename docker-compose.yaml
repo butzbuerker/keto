@@ -5,9 +5,11 @@ services:
     container_name: keto
     volumes:
       - "/mnt/nas_folder:/data/source:rw"
-      - "/mnt/canon_hotfolder:/data/target:rw"
+      - "//CanonC810/pdf_jdf:/data/target:rw"
     restart: unless-stopped
     environment:
       - WEBHOOK_URL=${WEBHOOK_URL}
+      - CIFS_USERNAME=${CIFS_USERNAME:-}
+      - CIFS_PASSWORD=${CIFS_PASSWORD:-}
     env_file:
       - .env

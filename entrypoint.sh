@@ -95,11 +95,14 @@ process_file() {
     fi
 
     # Prüfe, ob das TARGET_DIR erreichbar ist.
-    local retries_target=5
+    local retries_target=10
     local count_target=0
-    until mountpoint -q "${TARGET_DIR}"; do
-        echo "$(date): Ziel ${TARGET_DIR} ist nicht gemountet. Versuch $((count_target+1)) von ${retries_target}."
-        sleep 10
+    until [ -d "${TARGET_DIR}" ] && [ -w "${TARGET_DIR}" ]; do
+        echo "$(date): Ziel ${TARGET_DIR} ist nicht verfügbar oder nicht beschreibbar. Versuch $((count_target+1)) von ${retries_target}."
+        echo "$(date): Prüfe Mount-Status..."
+        mountpoint -q "${TARGET_DIR}" && echo "$(date): Verzeichnis ist gemountet" || echo "$(date): Verzeichnis ist NICHT gemountet"
+        ls -la "${TARGET_DIR}" 2>/dev/null || echo "$(date): Kann Verzeichnis nicht auflisten"
+        sleep 15
         count_target=$((count_target+1))
         if [ "$count_target" -ge "$retries_target" ]; then
             echo "$(date): Ziel ${TARGET_DIR} bleibt unerreichbar – Datei ${FILENAME} wird übersprungen."
