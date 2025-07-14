@@ -30,23 +30,25 @@ send_webhook() {
 # Funktion zur Überprüfung, ob eine Datei vollständig geschrieben wurde
 check_file_complete() {
     local FILENAME="$1"
-    local max_attempts=30
+    local max_attempts=90  # Erhöht für mehr Sicherheit
     local attempt=0
     local last_size=0
     local current_size
     local unchanged_count=0
-    local check_interval=1
+    local check_interval=3  # Längere Intervalle für bessere Stabilität
+    local min_wait_time=60  # Mindestwartezeit reduziert
+    local min_file_size=1024  # Mindestgröße 1KB
 
     echo "$(date): Starte Überprüfung der Datei ${FILENAME} auf Vollständigkeit"
-    echo "$(date): Warte 30 Sekunden, um sicherzustellen, dass die Datei vollständig geschrieben wurde..."
-    sleep 30
+    echo "$(date): Warte ${min_wait_time} Sekunden, um sicherzustellen, dass die Datei vollständig geschrieben wurde..."
+    sleep $min_wait_time
 
     while [ $attempt -lt $max_attempts ]; do
         echo "$(date): Versuch $((attempt + 1))/$max_attempts - Prüfe Datei ${FILENAME}"
         
-        # Versuche die Datei zu öffnen und zu lesen
-        if ! dd if="${SOURCE_DIR}/${FILENAME}" of=/dev/null bs=1M count=1 2>/dev/null; then
-            echo "$(date): Datei ${FILENAME} konnte nicht gelesen werden (Versuch $((attempt + 1)))"
+        # Prüfe ob Datei existiert und lesbar ist
+        if [ ! -r "${SOURCE_DIR}/${FILENAME}" ]; then
+            echo "$(date): Datei ${FILENAME} ist nicht lesbar (Versuch $((attempt + 1)))"
             sleep $check_interval
             attempt=$((attempt + 1))
             continue
@@ -56,16 +58,43 @@ check_file_complete() {
         current_size=$(stat -f %z "${SOURCE_DIR}/${FILENAME}" 2>/dev/null || stat -c %s "${SOURCE_DIR}/${FILENAME}")
         echo "$(date): Aktuelle Dateigröße: ${current_size} Bytes"
         
+        # Prüfe ob Datei mindestens die Mindestgröße hat
+        if [ "$current_size" -lt $min_file_size ]; then
+            echo "$(date): Datei ${FILENAME} ist zu klein (${current_size} Bytes < ${min_file_size} Bytes) - warte weiter"
+            sleep $check_interval
+            attempt=$((attempt + 1))
+            continue
+        fi
+        
         if [ "$current_size" = "$last_size" ]; then
             unchanged_count=$((unchanged_count + 1))
-            echo "$(date): Dateigröße unverändert (${unchanged_count}/3)"
-            if [ $unchanged_count -ge 3 ]; then
+            echo "$(date): Dateigröße unverändert (${unchanged_count}/5)"  # Reduziert für schnellere Verarbeitung
+            if [ $unchanged_count -ge 5 ]; then
                 echo "$(date): Versuche vollständigen Lesevorgang für ${FILENAME}"
-                if dd if="${SOURCE_DIR}/${FILENAME}" of=/dev/null bs=1M 2>/dev/null; then
-                    echo "$(date): Datei ${FILENAME} erfolgreich vollständig gelesen"
+                
+                # Mehrfacher Lesevorgang zur Sicherheit
+                local read_success=true
+                for i in 1 2 3; do
+                    echo "$(date): Lesevorgang ${i}/3 für ${FILENAME}"
+                    if ! dd if="${SOURCE_DIR}/${FILENAME}" of=/dev/null bs=1M 2>/dev/null; then
+                        echo "$(date): Fehler beim Lesevorgang ${i}/3 von ${FILENAME}"
+                        read_success=false
+                        break
+                    fi
+                    sleep 1
+                done
+                
+                if $read_success; then
+                    echo "$(date): Datei ${FILENAME} erfolgreich vollständig gelesen (3x bestätigt)"
+                    
+                    # Zusätzliche Wartezeit nach erfolgreichem Lesen
+                    echo "$(date): Warte weitere 10 Sekunden zur Sicherheit..."
+                    sleep 10
+                    
                     return 0
                 else
                     echo "$(date): Fehler beim vollständigen Lesen von ${FILENAME}"
+                    unchanged_count=0  # Reset für weitere Versuche
                 fi
             fi
         else
