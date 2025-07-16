@@ -1,8 +1,8 @@
 # Verwende ein leichtgewichtiges Alpine Linux als Basis-Image
 FROM alpine:latest
 
-# Installiere notwendige Tools: inotify-tools, bash, coreutils und curl
-RUN apk add --no-cache inotify-tools bash coreutils curl
+# Installiere notwendige Tools: inotify-tools, bash, coreutils, curl und cifs-utils
+RUN apk add --no-cache inotify-tools bash coreutils curl cifs-utils
 
 # Kopiere das Überwachungsskript in das Image
 COPY entrypoint.sh /entrypoint.sh

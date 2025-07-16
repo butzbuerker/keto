@@ -3,16 +3,94 @@
 # und startet anschließend einen kontinuierlichen Polling-Modus, der alle 5 Sekunden nach neuen PDF-Dateien sucht.
 # Die Dateien werden in den Zielordner verschoben und über einen n8n Webhook werden Meldungen versendet.
 
-# Verzeichnis, in dem neue Dateien ankommen (z. B. NAS-Ordner, per Volume gemountet)
+# Verzeichnis, in dem neue Dateien ankommen (z. B. NAS-Ordner, per Volume gemountet)
 SOURCE_DIR="/data/source"
 
-# Verzeichnis, in das die Dateien verschoben werden (z. B. Canon Hotfolder, per Volume gemountet)
+# Verzeichnis, in das die Dateien verschoben werden (z. B. Canon Hotfolder, per Volume gemountet)
 TARGET_DIR="/data/target"
 
 # Webhook URL, über Umgebungsvariable konfigurierbar
 WEBHOOK_URL="${WEBHOOK_URL:-}"
 
+# CIFS Credentials
+CIFS_USERNAME="${CIFS_USERNAME:-}"
+CIFS_PASSWORD="${CIFS_PASSWORD:-}"
+
 echo "$(date): Starte Überwachung und Initialisierung..."
+
+# Funktion zum Mounten des CIFS-Shares
+mount_cifs_target() {
+    local max_attempts=5
+    local attempt=0
+    
+    echo "$(date): Versuche CIFS-Share zu mounten..."
+    
+    # Installiere cifs-utils falls nicht vorhanden
+    if ! command -v mount.cifs &> /dev/null; then
+        echo "$(date): Installiere cifs-utils..."
+        apk add --no-cache cifs-utils
+    fi
+    
+    while [ $attempt -lt $max_attempts ]; do
+        echo "$(date): Mount-Versuch $((attempt + 1))/$max_attempts"
+        
+        # Prüfe ob bereits gemountet
+        if mountpoint -q "${TARGET_DIR}"; then
+            echo "$(date): ${TARGET_DIR} ist bereits gemountet"
+            return 0
+        fi
+        
+        # Versuche zu mounten
+        local mount_cmd="mount -t cifs //CanonC810/pdf_jdf ${TARGET_DIR}"
+        if [ -n "$CIFS_USERNAME" ] && [ -n "$CIFS_PASSWORD" ]; then
+            mount_cmd="$mount_cmd -o username=$CIFS_USERNAME,password=$CIFS_PASSWORD"
+        fi
+        
+        if $mount_cmd; then
+            echo "$(date): CIFS-Share erfolgreich gemountet"
+            return 0
+        else
+            echo "$(date): Fehler beim Mounten des CIFS-Shares"
+            sleep 30
+        fi
+        
+        attempt=$((attempt + 1))
+    done
+    
+    echo "$(date): Konnte CIFS-Share nicht mounten nach $max_attempts Versuchen"
+    return 1
+}
+
+# Funktion zur Überprüfung und Wiederherstellung der Mounts
+check_and_restore_mounts() {
+    local source_mounted=true
+    local target_mounted=true
+    
+    # Prüfe Source-Mount
+    if ! mountpoint -q "${SOURCE_DIR}"; then
+        echo "$(date): WARNUNG: Source-Verzeichnis ${SOURCE_DIR} ist nicht gemountet!"
+        source_mounted=false
+    fi
+    
+    # Prüfe Target-Mount
+    if ! mountpoint -q "${TARGET_DIR}"; then
+        echo "$(date): WARNUNG: Target-Verzeichnis ${TARGET_DIR} ist nicht gemountet!"
+        target_mounted=false
+        
+        # Versuche CIFS-Share neu zu mounten
+        if mount_cifs_target; then
+            target_mounted=true
+            echo "$(date): Target-Mount erfolgreich wiederhergestellt"
+        fi
+    fi
+    
+    if ! $source_mounted || ! $target_mounted; then
+        send_webhook "error" "mount_failure_source_${source_mounted}_target_${target_mounted}"
+        return 1
+    fi
+    
+    return 0
+}
 
 # Funktion, die einen JSON-POST an den Webhook sendet
 send_webhook() {
@@ -206,6 +284,13 @@ echo "$(date): Initialisierung abgeschlossen – starte Polling auf neue PDF-Dat
 
 # Kontinuierliche Überwachung des Quellordners per Polling
 while true; do
+    # Prüfe und stelle Mounts wieder her falls nötig
+    if ! check_and_restore_mounts; then
+        echo "$(date): Mount-Probleme erkannt. Warte 60 Sekunden vor erneutem Versuch..."
+        sleep 60
+        continue
+    fi
+    
     for file in "${SOURCE_DIR}"/*.pdf; do
         # Falls keine PDF-Datei existiert, wird die Schleife übersprungen
         [ -e "$file" ] || continue
