@@ -5,7 +5,6 @@ services:
     container_name: keto
     volumes:
       - "/mnt/nas_folder:/data/source:rw"
-      - "//CanonC810/pdf_jdf:/data/target:rw"
     restart: unless-stopped
     environment:
       - WEBHOOK_URL=${WEBHOOK_URL}
@@ -15,7 +14,7 @@ services:
       - .env
     # Healthcheck hinzufügen
     healthcheck:
-      test: ["CMD", "sh", "-c", "mountpoint -q /data/source && mountpoint -q /data/target"]
+      test: ["CMD", "sh", "-c", "mountpoint -q /data/source"]
       interval: 30s
       timeout: 10s
       retries: 3

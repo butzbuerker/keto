@@ -31,6 +31,9 @@ mount_cifs_target() {
         apk add --no-cache cifs-utils
     fi
     
+    # Erstelle Target-Verzeichnis falls es nicht existiert
+    mkdir -p "${TARGET_DIR}"
+    
     while [ $attempt -lt $max_attempts ]; do
         echo "$(date): Mount-Versuch $((attempt + 1))/$max_attempts"
         
@@ -40,12 +43,15 @@ mount_cifs_target() {
             return 0
         fi
         
-        # Versuche zu mounten
+        # Versuche zu mounten mit korrekter UNC-Pfad-Syntax
         local mount_cmd="mount -t cifs //CanonC810/pdf_jdf ${TARGET_DIR}"
         if [ -n "$CIFS_USERNAME" ] && [ -n "$CIFS_PASSWORD" ]; then
-            mount_cmd="$mount_cmd -o username=$CIFS_USERNAME,password=$CIFS_PASSWORD"
+            mount_cmd="$mount_cmd -o username=$CIFS_USERNAME,password=$CIFS_PASSWORD,vers=2.0"
+        else
+            mount_cmd="$mount_cmd -o vers=2.0"
         fi
         
+        echo "$(date): Führe aus: $mount_cmd"
         if $mount_cmd; then
             echo "$(date): CIFS-Share erfolgreich gemountet"
             return 0
