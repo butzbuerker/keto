@@ -15,7 +15,7 @@ services:
       - .env
     # Healthcheck hinzufügen
     healthcheck:
-      test: ["CMD", "mountpoint", "-q", "/data/source"] && ["CMD", "mountpoint", "-q", "/data/target"]
+      test: ["CMD", "sh", "-c", "mountpoint -q /data/source && mountpoint -q /data/target"]
       interval: 30s
       timeout: 10s
       retries: 3
