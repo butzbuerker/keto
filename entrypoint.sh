@@ -314,17 +314,18 @@ done
 
 echo "$(date): Quelle ${SOURCE_DIR} ist gemountet."
 
-# Prüfe, ob das TARGET_DIR gemountet ist. Falls nicht, versuche es zu mounten.
+# Prüfe, ob das TARGET_DIR gemountet ist (Host-Mount)
 echo "$(date): Prüfe Target-Verzeichnis ${TARGET_DIR}..."
 if mountpoint -q "${TARGET_DIR}"; then
-    echo "$(date): Target ${TARGET_DIR} ist bereits gemountet."
+    echo "$(date): Target ${TARGET_DIR} ist gemountet."
 else
-    echo "$(date): Target ${TARGET_DIR} ist nicht gemountet. Versuche CIFS-Share zu mounten..."
-    if mount_cifs_target; then
-        echo "$(date): Target ${TARGET_DIR} erfolgreich gemountet."
+    echo "$(date): WARNUNG: Target ${TARGET_DIR} ist nicht gemountet. Prüfe Host-Mount..."
+    # Prüfe ob das Verzeichnis existiert und beschreibbar ist
+    if [ -d "${TARGET_DIR}" ] && [ -w "${TARGET_DIR}" ]; then
+        echo "$(date): Target ${TARGET_DIR} ist verfügbar und beschreibbar (Host-Mount)."
     else
-        echo "$(date): WARNUNG: Target ${TARGET_DIR} konnte nicht gemountet werden. Service startet trotzdem."
-        send_webhook "error" "target_mount_failed_startup"
+        echo "$(date): WARNUNG: Target ${TARGET_DIR} ist nicht verfügbar oder nicht beschreibbar."
+        send_webhook "error" "target_not_available_startup"
     fi
 fi
 
@@ -345,13 +346,6 @@ echo "$(date): Initialisierung abgeschlossen – starte Polling auf neue PDF-Dat
 
 # Kontinuierliche Überwachung des Quellordners per Polling
 while true; do
-    # Prüfe und stelle Mounts wieder her falls nötig
-    if ! check_and_restore_mounts; then
-        echo "$(date): Mount-Probleme erkannt. Warte 60 Sekunden vor erneutem Versuch..."
-        sleep 60
-        continue
-    fi
-    
     for file in "${SOURCE_DIR}"/*.pdf; do
         # Falls keine PDF-Datei existiert, wird die Schleife übersprungen
         [ -e "$file" ] || continue

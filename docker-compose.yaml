@@ -5,8 +5,8 @@ services:
     container_name: keto
     volumes:
       - "/mnt/nas_folder:/data/source:rw"
+      - "/mnt/canon_hotfolder:/data/target:rw"
     restart: unless-stopped
-    privileged: true  # Benötigt für CIFS-Mounting
     environment:
       - WEBHOOK_URL=${WEBHOOK_URL}
       - CIFS_USERNAME=${CIFS_USERNAME:-}
