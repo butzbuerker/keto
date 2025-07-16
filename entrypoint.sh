@@ -12,11 +12,28 @@ TARGET_DIR="/data/target"
 # Webhook URL, über Umgebungsvariable konfigurierbar
 WEBHOOK_URL="${WEBHOOK_URL:-}"
 
-# CIFS Credentials
-CIFS_USERNAME="${CIFS_USERNAME:-}"
-CIFS_PASSWORD="${CIFS_PASSWORD:-}"
+# CIFS Credentials - Standard-Credentials für Canon Hotfolder
+CIFS_USERNAME="${CIFS_USERNAME:-pdf_jdf}"
+CIFS_PASSWORD="${CIFS_PASSWORD:-VMR-phz_zbn.eat7yfw}"
 
 echo "$(date): Starte Überwachung und Initialisierung..."
+
+# Debug-Funktion für Mount-Status
+debug_mount_status() {
+    echo "$(date): === MOUNT DEBUG INFO ==="
+    echo "$(date): Source-Verzeichnis: ${SOURCE_DIR}"
+    mountpoint -q "${SOURCE_DIR}" && echo "$(date): ✓ Source ist gemountet" || echo "$(date): ✗ Source ist NICHT gemountet"
+    ls -la "${SOURCE_DIR}" 2>/dev/null | head -5 || echo "$(date): Kann Source nicht auflisten"
+    
+    echo "$(date): Target-Verzeichnis: ${TARGET_DIR}"
+    mountpoint -q "${TARGET_DIR}" && echo "$(date): ✓ Target ist gemountet" || echo "$(date): ✗ Target ist NICHT gemountet"
+    ls -la "${TARGET_DIR}" 2>/dev/null | head -5 || echo "$(date): Kann Target nicht auflisten"
+    
+    echo "$(date): CIFS Credentials:"
+    echo "$(date): Username: ${CIFS_USERNAME}"
+    echo "$(date): Password: [HIDDEN]"
+    echo "$(date): === END DEBUG INFO ==="
+}
 
 # Funktion zum Mounten des CIFS-Shares
 mount_cifs_target() {
@@ -46,15 +63,24 @@ mount_cifs_target() {
         # Versuche zu mounten mit korrekter UNC-Pfad-Syntax
         local mount_cmd="mount -t cifs //CanonC810/pdf_jdf ${TARGET_DIR}"
         if [ -n "$CIFS_USERNAME" ] && [ -n "$CIFS_PASSWORD" ]; then
-            mount_cmd="$mount_cmd -o username=$CIFS_USERNAME,password=$CIFS_PASSWORD,vers=2.0"
+            mount_cmd="$mount_cmd -o username=$CIFS_USERNAME,password=$CIFS_PASSWORD,vers=2.0,uid=0,gid=0,file_mode=0644,dir_mode=0755"
         else
-            mount_cmd="$mount_cmd -o vers=2.0"
+            mount_cmd="$mount_cmd -o vers=2.0,uid=0,gid=0,file_mode=0644,dir_mode=0755"
         fi
         
         echo "$(date): Führe aus: $mount_cmd"
         if $mount_cmd; then
             echo "$(date): CIFS-Share erfolgreich gemountet"
-            return 0
+            # Teste Schreibzugriff
+            if touch "${TARGET_DIR}/test_write.tmp" 2>/dev/null; then
+                rm -f "${TARGET_DIR}/test_write.tmp"
+                echo "$(date): Schreibzugriff auf Target-Verzeichnis bestätigt"
+                return 0
+            else
+                echo "$(date): WARNUNG: Kein Schreibzugriff auf Target-Verzeichnis"
+                umount "${TARGET_DIR}" 2>/dev/null
+                return 1
+            fi
         else
             echo "$(date): Fehler beim Mounten des CIFS-Shares"
             sleep 30
@@ -293,6 +319,9 @@ else
 fi
 
 echo "$(date): Starte Initialisierung..."
+
+# Debug-Informationen ausgeben
+debug_mount_status
 
 # Initialisierungsphase: Verarbeite alle bereits vorhandenen PDF-Dateien im SOURCE_DIR
 for file in "${SOURCE_DIR}"/*.pdf; do
