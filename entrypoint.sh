@@ -270,7 +270,23 @@ until mountpoint -q "${SOURCE_DIR}"; do
     fi
 done
 
-echo "$(date): Quelle ${SOURCE_DIR} ist gemountet. Starte Initialisierung..."
+echo "$(date): Quelle ${SOURCE_DIR} ist gemountet."
+
+# Prüfe, ob das TARGET_DIR gemountet ist. Falls nicht, versuche es zu mounten.
+echo "$(date): Prüfe Target-Verzeichnis ${TARGET_DIR}..."
+if mountpoint -q "${TARGET_DIR}"; then
+    echo "$(date): Target ${TARGET_DIR} ist bereits gemountet."
+else
+    echo "$(date): Target ${TARGET_DIR} ist nicht gemountet. Versuche CIFS-Share zu mounten..."
+    if mount_cifs_target; then
+        echo "$(date): Target ${TARGET_DIR} erfolgreich gemountet."
+    else
+        echo "$(date): WARNUNG: Target ${TARGET_DIR} konnte nicht gemountet werden. Service startet trotzdem."
+        send_webhook "error" "target_mount_failed_startup"
+    fi
+fi
+
+echo "$(date): Starte Initialisierung..."
 
 # Initialisierungsphase: Verarbeite alle bereits vorhandenen PDF-Dateien im SOURCE_DIR
 for file in "${SOURCE_DIR}"/*.pdf; do
