@@ -51,6 +51,16 @@ mount_cifs_target() {
     # Erstelle Target-Verzeichnis falls es nicht existiert
     mkdir -p "${TARGET_DIR}"
     
+    # Teste Hostname-Auflösung
+    echo "$(date): Teste Hostname-Auflösung..."
+    if nslookup CanonC810 >/dev/null 2>&1; then
+        echo "$(date): Hostname CanonC810 kann aufgelöst werden"
+        local server="CanonC810"
+    else
+        echo "$(date): Hostname CanonC810 kann nicht aufgelöst werden, verwende IP-Adresse"
+        local server="192.168.2.11"
+    fi
+    
     while [ $attempt -lt $max_attempts ]; do
         echo "$(date): Mount-Versuch $((attempt + 1))/$max_attempts"
         
@@ -61,7 +71,7 @@ mount_cifs_target() {
         fi
         
         # Versuche zu mounten mit korrekter UNC-Pfad-Syntax
-        local mount_cmd="mount -t cifs //CanonC810/pdf_jdf ${TARGET_DIR}"
+        local mount_cmd="mount -t cifs //${server}/pdf_jdf ${TARGET_DIR}"
         if [ -n "$CIFS_USERNAME" ] && [ -n "$CIFS_PASSWORD" ]; then
             mount_cmd="$mount_cmd -o username=$CIFS_USERNAME,password=$CIFS_PASSWORD,vers=2.0,uid=0,gid=0,file_mode=0644,dir_mode=0755"
         else
